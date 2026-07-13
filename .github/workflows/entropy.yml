@@ -1,0 +1,43 @@
+# .github/workflows/entropy.yml
+#
+# Rebuilds the entropy report every night.
+# The disorder is measured. The disorder is increasing.
+
+name: entropy
+
+on:
+  schedule:
+    - cron: "17 3 * * *"    # nightly, at an hour nobody chose on purpose
+  workflow_dispatch:         # manual "run" button in the Actions tab
+  push:
+    branches: [main]
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: measure the disorder
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_USER: ${{ github.repository_owner }}
+          OUT: dist/entropy.svg
+        run: python .github/scripts/entropy.py
+
+      - name: commit the report
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p assets
+          mv dist/entropy.svg assets/entropy.svg
+          git add assets/entropy.svg
+          git diff --quiet --cached || git commit -m "entropy: $(date -u +%F)"
+          git push
